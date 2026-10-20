@@ -1,0 +1,19 @@
+{
+  "name": "1MM 보고서 · 수학도서관",
+  "short_name": "1MM 보고서",
+  "description": "수학도서관 1개월 학습보고서 작성 프로그램",
+  "id": "./",
+  "start_url": "./#/list",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "orientation": "any",
+  "background_color": "#FBFAF5",
+  "theme_color": "#0A4844",
+  "lang": "ko",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
