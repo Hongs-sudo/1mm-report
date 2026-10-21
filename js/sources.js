@@ -133,22 +133,25 @@ export function applyDR(data, s, rowIdx) {
     nomk: String(s.nomk), muAbsent: String(s.muAbsent), muProgress: String(s.muProgress),
     hwTotal: String(s.hwTotal), hwSkip: String(s.hwSkip), hwRate: s.hwRate === '' ? '' : String(s.hwRate)
   });
+  // 담임 한 명이면 불러올 때마다 새로 씀(다시 불러와도 겹치지 않게), 두 명이면 선생님별로 이어 붙임
+  const solo = data.teachers.length < 2;
+  const put = (key, val, sep) => { data[key] = solo ? val : mergeLine(data[key], val, sep); };
   if (s.books.length) {
-    if (!row.hwCourse) row.hwCourse = s.books.map(b => b.book).join(', ');
+    row.hwCourse = s.books.map(b => b.book).join(', ');
     const courseTxt = s.books.map(b => b.book + (b.rate != null ? ` (${b.rate}%)` : '')).join(' · ');
-    const tag = data.teachers.length > 1 ? ` (${row.name || row.role})` : '';
-    data.current_course = mergeLine(data.current_course, courseTxt + tag);
-    const progTxt = s.books.map(b => `${data.teachers.length > 1 ? `[${row.name || row.role}] ` : ''}${b.book}${b.unit ? ' · ' + b.unit : ''}${b.rate != null ? ` (${b.rate}%)` : ''}`).join('\n');
-    data.current_progress = mergeLine(data.current_progress, progTxt, '\n');
+    put('current_course', courseTxt + (solo ? '' : ` (${row.name || row.role})`), ' · ');
+    const progTxt = s.books.map(b => `${solo ? '' : `[${row.name || row.role}] `}${b.book}${b.unit ? ' · ' + b.unit : ''}${b.rate != null ? ` (${b.rate}%)` : ''}`).join('\n');
+    put('current_progress', progTxt, '\n');
   }
   const days = [];
   if (s.absentDays.length) days.push('결석 ' + s.absentDays.join(', '));
   if (s.makeDays.length) days.push('보강 ' + s.makeDays.join(', '));
   if (s.lateDays.length) days.push('지각 ' + s.lateDays.join(', '));
-  if (days.length) data.att_days = mergeLine(data.att_days, (data.teachers.length > 1 ? `[${row.name || row.role}] ` : '') + days.join(' / '), ' · ');
-  if (s.skipped.length) data.hw_note = mergeLine(data.hw_note, s.skipped.map(x => x + (data.teachers.length > 1 ? ` (${row.name || row.role})` : '')).join('\n'), '\n');
-  if (s.from) data.att_from = data.att_from || s.from;
-  if (s.to) data.att_to = data.att_to || s.to;
+  if (days.length || solo) put('att_days', days.length ? (solo ? '' : `[${row.name || row.role}] `) + days.join(' / ') : '', ' · ');
+  if (s.skipped.length || solo) put('hw_note', s.skipped.map(x => x + (solo ? '' : ` (${row.name || row.role})`)).join('\n'), '\n');
+  // 보고서 기간은 불러온 기간으로 맞춤 (표의 숫자와 기간이 어긋나지 않게)
+  if (s.from) data.att_from = s.from;
+  if (s.to) data.att_to = s.to;
   data.hints = data.hints || {};
   if (s.focus) data.hints.focus = `수업 집중 평균 ${s.focus} / 5`;
   if (s.attitude) data.hints.motivation = `수업 태도 평균 ${s.attitude} / 5`;
