@@ -140,8 +140,11 @@ export function applyDR(data, s, rowIdx) {
     row.hwCourse = s.books.map(b => b.book).join(', ');
     const courseTxt = s.books.map(b => b.book + (b.rate != null ? ` (${b.rate}%)` : '')).join(' · ');
     put('current_course', courseTxt + (solo ? '' : ` (${row.name || row.role})`), ' · ');
-    const progTxt = s.books.map(b => `${solo ? '' : `[${row.name || row.role}] `}${b.book}${b.unit ? ' · ' + b.unit : ''}${b.rate != null ? ` (${b.rate}%)` : ''}`).join('\n');
-    put('current_progress', progTxt, '\n');
+    // 2페이지 진행 교재 줄: 이 선생님 줄만 새로 바꿈
+    const who = solo ? '' : (row.name || row.role);
+    const fresh = s.books.map(b => ({ name: b.book + (b.unit ? ' · ' + b.unit : ''), rate: b.rate != null ? String(b.rate) : '', teacher: who }));
+    const keep = solo ? [] : (data.books || []).filter(b => (b.name || b.rate !== '') && b.teacher !== who);
+    data.books = [...keep, ...fresh];
   }
   const days = [];
   if (s.absentDays.length) days.push('결석 ' + s.absentDays.join(', '));
@@ -316,6 +319,12 @@ export function applyAI(data, out) {
       if (t[k] != null && String(t[k]) !== '') row[k] = String(t[k]);
     });
   });
+  if (f.current_progress) {
+    data.books = String(f.current_progress).split(/\n+/).map(l => l.trim()).filter(Boolean).map(l => {
+      const r = l.match(/\((\d{1,3})\s*%\)\s*$/);
+      return { name: r ? l.slice(0, r.index).trim() : l, rate: r ? r[1] : '', teacher: '' };
+    });
+  }
   if (out.memo) data.ai_memo = String(out.memo);
   return out.check || [];
 }

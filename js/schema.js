@@ -116,11 +116,47 @@ export function newReportData(student, staffNames = {}) {
     hints: {},
     coaching_reason: '', prelearning_reason: '',
     current_progress: '', roadmap_text: '', roadmap_label: '분기 로드맵',
+    books: [newBook()], road: [newRoad(), newRoad(), newRoad()],
     briefing_sub: '', write_date: todayStr(),
-    briefing_text: '',
+    briefing_text: '', brief1: '', brief2: '', brief3: '',
     auto: {}
   };
 }
+
+/* 진행 교재 한 줄 · 로드맵 한 줄 */
+export function newBook(name = '', rate = '', teacher = '') { return { name, rate, teacher }; }
+export function newRoad(month = '', text = '') { return { month, text }; }
+
+// 예전 형식(글 상자)으로 저장된 보고서를 새 양식(교재 줄 · 로드맵 줄 · 브리핑 세 칸)으로 옮김
+export function normalize(data) {
+  data.answers = data.answers || {};
+  data.hints = data.hints || {};
+  data.teachers = data.teachers && data.teachers.length ? data.teachers : [newTeacherRow('담임')];
+  if (!Array.isArray(data.books)) {
+    const lines = String(data.current_progress || '').split(/\n+/).map(l => l.trim()).filter(Boolean);
+    data.books = lines.map(l => {
+      let teacher = '';
+      const t = l.match(/^\[([^\]]+)\]\s*/); if (t) { teacher = t[1]; l = l.slice(t[0].length); }
+      const r = l.match(/\((\d{1,3})\s*%\)\s*$/);
+      return newBook(r ? l.slice(0, r.index).trim() : l, r ? r[1] : '', teacher);
+    });
+    if (!data.books.length) data.books = [newBook()];
+  }
+  if (!Array.isArray(data.road)) {
+    const lines = String(data.roadmap_text || '').split(/\n+/).map(l => l.trim()).filter(Boolean);
+    data.road = lines.map(l => {
+      const m = l.match(/^(\d{1,2}\s*월)\s*[·:\-]?\s*/);
+      return m ? newRoad(m[1].replace(/\s/g, ''), l.slice(m[0].length)) : newRoad('', l);
+    });
+    while (data.road.length < 3) data.road.push(newRoad());
+  }
+  if (data.brief1 == null && data.brief2 == null && data.brief3 == null) {
+    data.brief1 = data.briefing_text || ''; data.brief2 = ''; data.brief3 = '';
+  }
+  ['brief1', 'brief2', 'brief3'].forEach(k => { if (data[k] == null) data[k] = ''; });
+  return data;
+}
+export function bookLine(b) { return [b.name, b.rate !== '' && b.rate != null ? `(${b.rate}%)` : ''].filter(Boolean).join(' '); }
 
 // 담임/부담임 표의 합계
 export function sums(data) {
@@ -197,4 +233,45 @@ export function genBriefing(data, monthLabel) {
 
 export function answeredCount(data) {
   return SUMMARY_ORDER.filter(k => { const v = data.answers[k]; return Array.isArray(v) ? v.length : !!v; }).length;
+}
+
+
+// 브리핑 세 칸 자동생성 (수업 태도와 학습 습관 / 성적과 진단 결과 / 다음 달 계획)
+export function genBriefing3(data) {
+  const t = data.teachers || [];
+  const S = sums(data);
+  const ev = id => { const v = data.answers[id]; if (!v || !EVAL_SENTENCES[id]) return []; return (Array.isArray(v) ? v : [v]).map(x => EVAL_SENTENCES[id][x]).filter(Boolean); };
+  const period = [data.att_from, data.att_to].filter(Boolean).join(' ~ ');
+
+  const a = [];
+  if (t.length > 1) {
+    const parts = t.filter(r => r.sessions !== '').map(r => `${r.role} ${r.name || ''} 선생님${r.days ? '(' + r.days + ')' : ''} ${r.sessions}회`);
+    if (parts.length) a.push(`${period ? period + ' 동안 ' : ''}${parts.join(', ')}로 나누어 모두 ${S.sessions}회 수업했습니다.`);
+  } else if (S.sessions !== '') a.push(`${period ? period + ' 동안 ' : ''}모두 ${S.sessions}회 수업했습니다.`);
+  const att = [];
+  if (S.present !== '') att.push(`출석 ${S.present}회`);
+  if (+S.late) att.push(`지각 ${S.late}회`);
+  if (+S.absent) att.push(`결석 ${S.absent}회`);
+  if (+S.muAbsent) att.push(`결석보강 ${S.muAbsent}회`);
+  if (+S.muProgress) att.push(`진도보강 ${S.muProgress}회`);
+  if (att.length) a.push(att.join(', ') + '입니다.');
+  if (S.hwRate !== '') a.push(`과제 달성률은 ${t.length > 1 ? '전체 ' : ''}${S.hwRate}%${t.length > 1 ? ' (' + t.filter(r => r.hwRate !== '').map(r => `${r.role} ${r.hwRate}%`).join(', ') + ')' : ''}이며, 총 ${S.hwTotal || 0}회 중 ${S.hwSkip || 0}회 과제를 해 오지 않았습니다.`);
+  a.push(...ev('focus'), ...ev('motivation'), ...ev('question_frequency'), ...ev('health'), ...ev('coaching'));
+
+  const b = [];
+  if (data.prev_score) b.push(`직전학기 내신: ${data.prev_score}.`);
+  const entry = [data.entry_score, data.entry_score2].filter(Boolean).join(' / ');
+  if (entry) b.push(`입회 진단평가: ${entry}.`);
+  if (data.monthly_eval_name || data.monthly_eval_score) b.push(`${data.monthly_eval_name || '월평가'}: ${[data.monthly_eval_score, data.monthly_eval_avg].filter(Boolean).join(' / ')}.`);
+  if (data.cert_eval_name || data.cert_eval_score) b.push(`${data.cert_eval_name || '인증시험'}: ${[data.cert_eval_score, data.cert_eval_pf].filter(Boolean).join(' / ')}.`);
+  b.push(...ev('homework_error'), ...ev('arithmetic'), ...ev('problem_speed'));
+
+  const c = [];
+  const books = (data.books || []).filter(x => x.name);
+  if (books.length) c.push('현재 진행 교재: ' + books.map(x => bookLine(x) + (t.length > 1 && x.teacher ? ` [${x.teacher}]` : '')).join(', ') + '.');
+  const road = (data.road || []).filter(x => x.month || x.text);
+  if (road.length) c.push(road.map(x => [x.month, x.text].filter(Boolean).join(' ')).join(' → ') + '.');
+  c.push(...ev('roadmap_speed'), ...ev('prelearning_reaction'));
+  if (data.ai_memo) c.push(`입회 상담 메모: ${data.ai_memo}`);
+  return { brief1: a.join(' '), brief2: b.join(' '), brief3: c.join(' ') };
 }

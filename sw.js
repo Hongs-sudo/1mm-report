@@ -1,7 +1,7 @@
 // 1MM 보고서 서비스 워커 — 화면 파일은 먼저 인터넷에서 새로 받고, 끊기면 저장해 둔 것을 씁니다.
-const CACHE = 'mm1-v2';
+const CACHE = 'mm1-v3';
 const SHELL = [
-  './', './index.html', './css/app.css?v=1', './js/app.js?v=1',
+  './', './index.html', './css/app.css?v=2', './js/app.js?v=2',
   './js/util.js', './js/fb.js', './js/schema.js', './js/render.js', './js/editor.js', './js/sources.js',
   './img/logo_h.png', './img/logo_v.png', './icons/icon-192.png', './icons/favicon.png', './manifest.webmanifest'
 ];
