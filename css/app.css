@@ -616,6 +616,7 @@ table.xl td { min-width: 56px; }
 .pr-page .s-scale > .on { color: var(--gi); font-weight: 700; }
 .pr-page .s-scale > .on i { background: var(--pg-gold); box-shadow: inset 0 0 0 .5mm #8A6A39; }
 .pr-page .s-txt { margin-top: 2.2mm; border-left: .6mm solid var(--gl); padding: .5mm 0 .5mm 3mm; font-size: 8.8pt; line-height: 1.75; color: #33403E; }
+.pr-page[data-pi="2"] .s-txt { font-size: var(--fs, 8.8pt); line-height: var(--lh, 1.75); }
 .pr-page .s-lb { display: flex; align-items: center; justify-content: space-between; gap: 2mm; font-size: 7.6pt; color: var(--gi); font-weight: 700; letter-spacing: .3pt; }
 .pr-page .s-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
 .pr-page .s-books { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2.2mm; font-size: 8.8pt; }
@@ -635,8 +636,8 @@ table.xl td { min-width: 56px; }
 .pr-page .s-bh img { height: 9mm; width: auto; }
 .pr-page .s-bh h2 { margin: 0; font-family: "Noto Serif KR", serif; font-size: 15pt; color: var(--g); font-weight: 900; text-align: right; }
 .pr-page .s-bh h2 small { display: block; font-family: "Lora", Georgia, serif; font-style: italic; font-weight: 400; font-size: 10.5pt; color: var(--gi); }
-.pr-page .s-brief { margin-top: 2.6mm; font-size: 9pt; line-height: 1.85; color: #2E3B39; }
-.pr-page .s-brief h4 { margin: 2.6mm 0 .4mm; font-size: 9.2pt; color: var(--g); display: flex; align-items: center; gap: 2mm; }
+.pr-page .s-brief { margin-top: 2.6mm; font-size: var(--fs, 9pt); line-height: var(--lh, 1.85); color: #2E3B39; }
+.pr-page .s-brief h4 { margin: 2.6mm 0 .4mm; font-size: max(1.02em, 8pt); color: var(--g); display: flex; align-items: center; gap: 2mm; }
 .pr-page .s-brief h4::before { content: ""; width: 1.6mm; height: 1.6mm; background: var(--pg-gold); transform: rotate(45deg); }
 .pr-page .s-brief p { margin: 0; }
 .pr-page .s-genrow { display: flex; justify-content: flex-end; margin-top: 1.4mm; }
@@ -704,3 +705,6 @@ table.xl td { min-width: 56px; }
 
 .overflow-probe { position: absolute; left: -10000px; top: 0; visibility: hidden; pointer-events: none; }
 .pages button.warn::after { content: "넘침"; margin-left: auto; font-size: 10.5px; font-weight: 700; color: #fff; background: var(--low); border-radius: 4px; padding: 0 5px; }
+
+.fit-badge { position: absolute; right: 0; top: -22px; font-size: 11.5px; font-weight: 700; color: var(--gold-ink); background: var(--gold-l); border: 1px solid var(--gold-line); border-radius: 6px; padding: 1px 8px; white-space: nowrap; }
+.pg-wrap { margin-top: 6px; }

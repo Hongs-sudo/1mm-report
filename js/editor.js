@@ -3,7 +3,7 @@
 import { $, $$, esc, debounce, toast, confirmBox, formBox, lsGet, lsSet } from './util.js';
 import { ref, getDoc, updateDoc, deleteDoc, serverTimestamp } from './fb.js';
 import { Q, STATUS, SUMMARY_ORDER, sums, teacherLine, newTeacherRow, newBook, newRoad, normalize, genCoaching, genPrelearning, genBriefing3, answeredCount } from './schema.js';
-import { sheetPages, printHTML } from './render.js';
+import { sheetPages, printHTML, computeFit, applyFit, FIT } from './render.js';
 import { drReady, fetchDR, setDRFromObject, drStudentNames, computeDR, applyDR, Uploads, sheetHTML, sheetHitCount, aiRead, applyAI } from './sources.js';
 
 const PAGES = [
@@ -124,7 +124,7 @@ export async function renderEditor(ctx, id) {
   const onVis = () => { if (document.hidden) flush(); };
   document.addEventListener('visibilitychange', onVis);
   window.addEventListener('pagehide', flush);
-  ctx.onLeave = () => { flush(); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onResize); probe.remove(); };
+  ctx.onLeave = () => { flush(); document.removeEventListener('visibilitychange', onVis); window.removeEventListener('resize', onResize); };
 
   /* ---------------- 지면 ---------------- */
   function renderSheets(keepScroll = false) {
@@ -132,8 +132,9 @@ export async function renderEditor(ctx, id) {
     const edit = st.view === 'edit';
     const pages = sheetPages(report, { edit });
     const idx = (st.all || !edit) ? [0, 1, 2, 3] : [st.page];
-    sheets.innerHTML = idx.map(i => `<div class="pg-wrap" data-p="${i}">${pages[i]}<div class="over-badge" hidden>이 쪽 내용이 넘쳐서 인쇄할 때 아래가 잘립니다. 글을 조금 줄여 주세요.</div></div>`).join('');
+    sheets.innerHTML = idx.map(i => `<div class="pg-wrap" data-p="${i}">${pages[i]}<div class="over-badge" hidden>글자를 가장 작게(7pt) 줄여도 넘칩니다. 인쇄할 때 아래가 잘리니 글을 조금 줄여 주세요.</div><div class="fit-badge" hidden></div></div>`).join('');
     sheets.classList.toggle('editing', edit);
+    if (st.fit) applyFit(sheets, st.fit);
     $$('textarea.e', sheets).forEach(grow);
     $$('#pages button').forEach(b => b.classList.toggle('on', +b.dataset.pg === st.page));
     $('#v-one').classList.toggle('on', !st.all); $('#v-all').classList.toggle('on', st.all);
@@ -156,26 +157,22 @@ export async function renderEditor(ctx, id) {
   const onResize = () => fit();
   window.addEventListener('resize', onResize);
 
-  // 인쇄 쪽 넘침 확인 — 실제 인쇄 모양을 화면 밖에 그려 재고, 넘치는 쪽에 표시
-  const probe = document.createElement('div');
-  probe.className = 'overflow-probe'; probe.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(probe);
+  // 넘침 확인 + 글자 크기 자동 맞춤 — 실제 인쇄 모양으로 재고 같은 크기를 작성 화면에도 적용
   const checkOverflowSoon = debounce(() => {
-    probe.innerHTML = printHTML(report);
-    const over = [...probe.querySelectorAll('.pr-page')].map(pg => {
-      const inEl = pg.querySelector('.s-in'); const ftEl = pg.querySelector('.s-ft');
-      if (!inEl || !ftEl) return false;
-      const limit = ftEl.getBoundingClientRect().top;
-      let bottom = 0;
-      [...inEl.children].forEach(c => { if (c !== ftEl) bottom = Math.max(bottom, c.getBoundingClientRect().bottom); });
-      return bottom > limit + 1;
-    });
+    const fitRes = computeFit(report);
+    st.fit = fitRes;
+    applyFit(sheets, fitRes);
+    $$('textarea.e', sheets).forEach(grow);
     $$('.pg-wrap', sheets).forEach(w => {
-      const o = !!over[+w.dataset.p];
+      const pi = +w.dataset.p;
+      const o = !!fitRes.over[pi];
       w.classList.toggle('over', o);
       w.querySelector('.over-badge').hidden = !o;
+      const fb = w.querySelector('.fit-badge');
+      const shrunk = FIT[pi] && fitRes[pi] < FIT[pi].base;
+      if (fb) { fb.hidden = !shrunk; if (shrunk) fb.textContent = `${pi === 3 ? '브리핑' : '지도계획'} 글이 길어 글자를 ${fitRes[pi]}pt로 줄였습니다${o ? ' (가장 작은 크기)' : ''}`; }
     });
-    $$('#pages button').forEach(b => b.classList.toggle('warn', !!over[+b.dataset.pg]));
+    $$('#pages button').forEach(b => b.classList.toggle('warn', !!fitRes.over[+b.dataset.pg]));
   }, 300);
   function refreshCalc() {
     const S = sums(data);
@@ -507,5 +504,8 @@ export function printNow(report) {
   document.title = `1MM보고서_${report.data.student_name || report.studentName || ''}`;
   const done = () => { document.body.classList.remove('printing'); root.innerHTML = ''; document.title = prevTitle; window.removeEventListener('afterprint', done); };
   window.addEventListener('afterprint', done);
-  Promise.all([ready, document.fonts ? document.fonts.ready : null]).then(() => setTimeout(() => window.print(), 120));
+  Promise.all([ready, document.fonts ? document.fonts.ready : null]).then(() => {
+    applyFit(root, computeFit(report));   // 브리핑·지도계획 글자 크기 자동 맞춤
+    setTimeout(() => window.print(), 120);
+  });
 }

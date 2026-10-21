@@ -68,7 +68,7 @@ export function sheetPages(report, { edit = false } = {}) {
     <div class="s-ttl"><span class="lat">Math Library</span><h1>1개월 학습보고서</h1></div>
     <div class="s-sub"><span class="n">${n}</span>${sub}</div>`;
   const foot = (n, c) => `<div class="s-ft"><span>수학도서관 · 1:1 명품 맞춤 수학학원${c ? ' · ' + CONTACT.replace(' · 02.2651.7750', '') : ''}</span><span class="pg">${n} / 3</span></div>`;
-  const page = (inner, cls = '') => `<section class="pr-page ${cls}"><div class="s-frame"></div>${inner}</section>`;
+  const page = (inner, cls = '', pi = 0) => `<section class="pr-page ${cls}" data-pi="${pi}"><div class="s-frame"></div>${inner}</section>`;
 
   /* ---------- 표지 ---------- */
   const period = [d.att_from, d.att_to].filter(Boolean).join(' – ');
@@ -82,7 +82,7 @@ export function sheetPages(report, { edit = false } = {}) {
       <div class="whobox"><div>학교<b data-who="sg">${esc([d.school, d.grade].filter(Boolean).join(' '))}</b></div><div>이름<b data-who="nm">${esc(d.student_name)}</b></div></div>
       <div class="period" data-who="period">${period ? '지도 기간 ' + esc(period) + ' · ' : ''}${esc(teacherLine(d))}</div>
       <div class="bottom"><div class="since">since 2013</div><div class="tel">${CONTACT}</div></div>
-    </div>`, 's-cover');
+    </div>`, 's-cover', 0);
 
   /* ---------- 1페이지 ---------- */
   const attRows = T.map((t, i) => `<tr><td>${esc(t.name || '선생님')}<span class="s-tg${tgCls(t.role)}">${esc(t.role)}</span> ${E ? ft(i, 'days', '요일', '', 'width:16mm;display:inline-block') : esc(t.days || '')}${E && i > 0 ? x(`data-del-t="${i}" aria-label="부담임 줄 지우기"`, '×') : ''}</td>${ATT_F.map(k => `<td class="${k === 'late' ? 'w' : k === 'absent' ? 'b' : ''}">${ft(i, k, '0')}</td>`).join('')}</tr>`).join('');
@@ -128,7 +128,7 @@ export function sheetPages(report, { edit = false } = {}) {
     ${miss}
     <div class="s-sec"><h2>관찰 평가</h2><span class="r"></span></div>
     ${qBox('homework_error', '', 'margin-top:0')}
-    ${foot(1)}</div>`);
+    ${foot(1)}</div>`, '', 1);
 
   /* ---------- 2페이지 ---------- */
   const books = d.books.filter(b => E || b.name || b.rate !== '');
@@ -149,7 +149,7 @@ export function sheetPages(report, { edit = false } = {}) {
     ${qBox('coaching', plan('coaching_reason', 'coaching'))}
     ${bookBox}
     ${qBox('prelearning_reaction', plan('prelearning_reason', 'prelearning'))}
-    ${foot(2)}</div>`);
+    ${foot(2)}</div>`, '', 2);
 
   /* ---------- 3페이지 ---------- */
   const home = T.find(t => t.role === '담임') || {};
@@ -170,12 +170,62 @@ export function sheetPages(report, { edit = false } = {}) {
       ${bsec('brief2', '성적과 진단 결과', '내신, 진단평가, 월평가, 오답·연산 습관')}
       ${bsec('brief3', '다음 달 계획', '다음 달 지도 계획, 학부모 상담 내용')}
     </div>
-    ${foot(3, true)}</div>`);
+    ${foot(3, true)}</div>`, '', 3);
 
   return [cover, p1, p2, p3];
 }
 
 export function printHTML(report) { return sheetPages(report, { edit: false }).join(''); }
+
+/* =========================================================
+   글자 크기 자동 맞춤
+   2페이지 지도계획 두 칸, 3페이지 브리핑 세 칸이 쪽을 넘치면
+   넘치지 않을 때까지 글자를 줄입니다 (가장 작게 7pt).
+   ========================================================= */
+export const FIT = {
+  2: { base: 8.8, min: 7, lh: 1.75, lhMin: 1.55 },
+  3: { base: 9, min: 7, lh: 1.85, lhMin: 1.6 }
+};
+const STEP = 0.25;
+function lhFor(pi, size) {
+  const f = FIT[pi];
+  return +(f.lh - (f.base - size) / (f.base - f.min) * (f.lh - f.lhMin)).toFixed(3);
+}
+export function pageOverflows(pg) {
+  const inEl = pg.querySelector('.s-in'); const ftEl = pg.querySelector('.s-ft');
+  if (!inEl || !ftEl) return false;
+  const limit = ftEl.getBoundingClientRect().top;
+  let bottom = 0;
+  [...inEl.children].forEach(c => { if (c !== ftEl) bottom = Math.max(bottom, c.getBoundingClientRect().bottom); });
+  return bottom > limit + 1;
+}
+function setFit(pg, pi, size) {
+  pg.style.setProperty('--fs', size + 'pt');
+  pg.style.setProperty('--lh', lhFor(pi, size));
+}
+// 실제 인쇄 모양을 화면 밖에 그려 각 쪽에 맞는 글자 크기를 정합니다
+export function computeFit(report) {
+  const probe = document.createElement('div');
+  probe.className = 'overflow-probe'; probe.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(probe);
+  probe.innerHTML = printHTML(report);
+  const pages = [...probe.querySelectorAll('.pr-page')];
+  const out = { 2: FIT[2].base, 3: FIT[3].base, over: [] };
+  pages.forEach((pg, i) => {
+    if (FIT[i]) {
+      let size = FIT[i].base;
+      setFit(pg, i, size);
+      while (pageOverflows(pg) && size > FIT[i].min) { size = Math.max(FIT[i].min, +(size - STEP).toFixed(2)); setFit(pg, i, size); }
+      out[i] = size;
+    }
+    out.over[i] = pageOverflows(pg);
+  });
+  probe.remove();
+  return out;
+}
+export function applyFit(root, fit) {
+  [2, 3].forEach(pi => root.querySelectorAll(`.pr-page[data-pi="${pi}"]`).forEach(pg => setFit(pg, pi, fit[pi])));
+}
 
 /* =========================================================
    휴대폰 · 읽기 전용 전체 보기 (모든 항목)
