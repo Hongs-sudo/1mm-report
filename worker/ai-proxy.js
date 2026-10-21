@@ -1,17 +1,22 @@
 // 1MM 보고서 · AI 인식 중계 서버 (Cloudflare Worker)
-// 아직 사용하지 않습니다. API 키를 준비한 뒤 아래 순서로 올리면, 관리자 설정에 주소를 넣는 순간 켜집니다.
 //
-// 1) Cloudflare 대시보드 → Workers & Pages → Create → Worker → 이름 예) mathlibrary-ai
-// 2) 이 파일 내용을 붙여넣고 Deploy
+// 1) Cloudflare 대시보드 → Workers & Pages → mathlibrary-ai → Edit code
+// 2) 이 파일 내용을 전부 붙여넣고 Deploy
 // 3) Worker → Settings → Variables and Secrets
 //      ANTHROPIC_API_KEY (Secret)  : Anthropic API 키
 //      ALLOWED_ORIGIN    (Text)    : https://hongs-sudo.github.io
 //      MODEL             (Text,선택): 사용할 모델 이름 (비우면 아래 기본값)
-// 4) 1MM 보고서 → 설정 · 연동 → AI 중계 서버 주소에 https://mathlibrary-ai.○○○.workers.dev 입력
+// 4) 1MM 보고서 → 설정 · 연동 → AI 중계 서버 주소에 워커 주소 입력
 //
+// 잠금: 1MM 보고서에 구글로 로그인한, 등록된(사용 중) 선생님만 쓸 수 있습니다.
+//   - 요청마다 Firebase 로그인 토큰의 서명·만료·프로젝트를 확인하고
+//   - 그 선생님의 Firestore staff 문서가 있는지(사용 중인지) 확인합니다.
 // 보내는 것: 입회원서 사진(축소본)과 엑셀 시트 내용(글자). 저장하지 않고 결과만 돌려줍니다.
 
 const DEFAULT_MODEL = 'claude-sonnet-5-5';
+const PROJECT_ID = 'mathlibrary-1mm';
+const OWNER_EMAIL = 'ilmvm66@gmail.com';
+const JWK_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
 
 const PROMPT = `당신은 수학학원 "수학도서관"의 1개월 학습보고서 작성을 돕는 도우미입니다.
 학생 한 명에 대한 자료(입회원서 사진, 선생님별 수업 기록 엑셀)를 받습니다.
@@ -31,6 +36,54 @@ const PROMPT = `당신은 수학학원 "수학도서관"의 1개월 학습보고
  "memo":"",
  "check":["확인이 필요한 점"]}`;
 
+/* ---------- Firebase 로그인 토큰 확인 ---------- */
+let jwkCache = { keys: null, until: 0 };
+async function googleKeys() {
+  if (jwkCache.keys && Date.now() < jwkCache.until) return jwkCache.keys;
+  const r = await fetch(JWK_URL);
+  if (!r.ok) throw new Error('keys');
+  const j = await r.json();
+  const m = /max-age=(\d+)/.exec(r.headers.get('Cache-Control') || '');
+  jwkCache = { keys: j.keys || [], until: Date.now() + (m ? +m[1] : 3600) * 1000 };
+  return jwkCache.keys;
+}
+function b64url(s) {
+  s = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  return Uint8Array.from(atob(s), c => c.charCodeAt(0));
+}
+async function verifyIdToken(token) {
+  const parts = (token || '').split('.');
+  if (parts.length !== 3) return null;
+  let header, payload;
+  try {
+    header = JSON.parse(new TextDecoder().decode(b64url(parts[0])));
+    payload = JSON.parse(new TextDecoder().decode(b64url(parts[1])));
+  } catch { return null; }
+  if (header.alg !== 'RS256' || !header.kid) return null;
+  const jwk = (await googleKeys()).find(k => k.kid === header.kid);
+  if (!jwk) return null;
+  const key = await crypto.subtle.importKey('jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+  const ok = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64url(parts[2]), new TextEncoder().encode(parts[0] + '.' + parts[1]));
+  if (!ok) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (payload.aud !== PROJECT_ID) return null;
+  if (payload.iss !== 'https://securetoken.google.com/' + PROJECT_ID) return null;
+  if (!payload.sub || payload.exp < now || payload.iat > now + 300) return null;
+  if (!payload.email || payload.email_verified !== true) return null;
+  return payload;
+}
+// 등록된(사용 중) 선생님인지 — 선생님 본인 토큰으로 자기 staff 문서를 읽어 확인
+async function isActiveStaff(email, token) {
+  if (email === OWNER_EMAIL) return true;
+  const url = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents/staff/${encodeURIComponent(email)}`;
+  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!r.ok) return false;
+  const d = await r.json();
+  return d.fields && d.fields.active && d.fields.active.booleanValue === true;
+}
+
+/* ---------- 요청 처리 ---------- */
 export default {
   async fetch(request, env) {
     const origin = request.headers.get('Origin') || '';
@@ -38,14 +91,26 @@ export default {
     const cors = {
       'Access-Control-Allow-Origin': allowed,
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Vary': 'Origin'
     };
+    const reply = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
+
     if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
-    if (request.method !== 'POST' || origin !== allowed) return new Response('Forbidden', { status: 403, headers: cors });
+    if (request.method !== 'POST' || origin !== allowed) return reply({ error: '허용되지 않은 요청입니다.' }, 403);
+
+    // 로그인 확인
+    const token = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+    let user = null;
+    try { user = await verifyIdToken(token); } catch { return reply({ error: '로그인 확인 서버에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.' }, 503); }
+    if (!user) return reply({ error: '로그인이 확인되지 않았습니다. 새로고침 후 다시 로그인해 주세요.' }, 401);
+    const email = String(user.email).toLowerCase();
+    if (!(await isActiveStaff(email, token))) return reply({ error: '등록된 선생님 계정만 AI 인식을 쓸 수 있습니다.' }, 403);
+
+    if (!env.ANTHROPIC_API_KEY) return reply({ error: 'AI 서버에 API 키(ANTHROPIC_API_KEY)가 없습니다.' }, 500);
 
     let body;
-    try { body = await request.json(); } catch { return new Response('Bad request', { status: 400, headers: cors }); }
+    try { body = await request.json(); } catch { return reply({ error: '요청 형식이 잘못되었습니다.' }, 400); }
 
     const content = [];
     content.push({ type: 'text', text: `학생: ${JSON.stringify(body.student)}\n기간: ${JSON.stringify(body.period)}\n선생님: ${JSON.stringify(body.teachers)}` });
@@ -60,17 +125,27 @@ export default {
       }
     }
 
+    const model = env.MODEL || DEFAULT_MODEL;
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: env.MODEL || DEFAULT_MODEL, max_tokens: 4000, system: PROMPT, messages: [{ role: 'user', content }] })
+      body: JSON.stringify({ model, max_tokens: 4000, system: PROMPT, messages: [{ role: 'user', content }] })
     });
-    if (!res.ok) return new Response(JSON.stringify({ error: 'AI 응답 오류 ' + res.status }), { status: 502, headers: { ...cors, 'Content-Type': 'application/json' } });
+    if (!res.ok) {
+      let msg = '';
+      try { const e = await res.json(); msg = (e.error && e.error.message) || ''; } catch {}
+      const hint = res.status === 401 ? 'API 키가 올바르지 않습니다.'
+        : /credit|balance|billing/i.test(msg) ? 'Anthropic 크레딧이 부족합니다. 콘솔 결제(Billing)에서 충전해 주세요.'
+        : res.status === 404 || /model/i.test(msg) ? `모델 이름(${model})을 확인해 주세요.`
+        : res.status === 429 ? '요청이 많습니다. 잠시 후 다시 시도해 주세요.'
+        : '';
+      return reply({ error: `AI 응답 오류 ${res.status}${hint ? ' · ' + hint : ''}`, detail: msg.slice(0, 300) }, 502);
+    }
     const out = await res.json();
     const text = (out.content || []).map(c => c.text || '').join('');
     const json = text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
     let parsed;
     try { parsed = JSON.parse(json); } catch { parsed = { fields: {}, teachers: [], check: ['AI 결과를 읽지 못했습니다. 다시 시도해 주세요.'] }; }
-    return new Response(JSON.stringify(parsed), { headers: { ...cors, 'Content-Type': 'application/json' } });
+    return reply(parsed);
   }
 };

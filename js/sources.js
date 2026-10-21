@@ -1,5 +1,6 @@
 // 자료 불러오기: 데일리 리포트(깃허브 동기화 파일 · 백업 JSON), 입회원서 사진, 수업 기록 엑셀
 import { esc, lsGet, lsSet, parseDate, md, num } from './util.js';
+import { auth } from './fb.js';
 
 /* =========================================================
    1. 데일리 리포트
@@ -294,8 +295,11 @@ export async function aiRead(endpoint, { data, uploads }) {
       files.push({ name: f.name, kind: 'sheet', teacher: teacher.name, role: teacher.role, text: text.slice(0, 180000) });
     }
   }
+  const user = auth.currentUser;
+  if (!user) throw new Error('로그인이 필요합니다. 새로고침 후 다시 로그인해 주세요.');
+  const idToken = await user.getIdToken();
   const res = await fetch(endpoint, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
     body: JSON.stringify({
       student: { name: data.student_name, school: data.school, grade: data.grade },
       period: { from: data.att_from, to: data.att_to },
@@ -303,7 +307,11 @@ export async function aiRead(endpoint, { data, uploads }) {
       files
     })
   });
-  if (!res.ok) throw new Error('AI 인식 서버가 응답하지 않습니다 (' + res.status + ')');
+  if (!res.ok) {
+    let msg = '';
+    try { const j = await res.json(); msg = j.error || ''; if (j.detail) console.warn('AI 오류 상세:', j.detail); } catch {}
+    throw new Error(msg || ('AI 인식 서버가 응답하지 않습니다 (' + res.status + ')'));
+  }
   return res.json();
 }
 // AI 결과 적용 — 형식은 worker/ai-proxy.js 참고
