@@ -1,0 +1,14 @@
+// Cloudflare Workers Builds 설정 — 워커 이름은 대시보드의 이름(mathlibrary-ai)과 같아야 합니다.
+{
+  "$schema": "https://unpkg.com/wrangler/config-schema.json",
+  "name": "mathlibrary-ai",
+  "main": "ai-proxy.js",
+  "compatibility_date": "2025-09-01",
+  "workers_dev": true,
+  // Anthropic은 홍콩 등 일부 지역의 요청을 받지 않으므로 미국 동부에서 실행되도록 고정
+  "placement": { "region": "aws:us-east-1" },
+  // 대시보드에서 넣은 변수(ALLOWED_ORIGIN 등)를 지우지 않음. API 키(Secret)는 원래 유지됩니다.
+  "keep_vars": true,
+  "vars": { "ALLOWED_ORIGIN": "https://hongs-sudo.github.io" },
+  "observability": { "enabled": true }
+}

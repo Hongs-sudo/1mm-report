@@ -1,6 +1,8 @@
 // 1MM 보고서 · AI 인식 중계 서버 (Cloudflare Worker)
 //
-// 1) Cloudflare 대시보드 → Workers & Pages → mathlibrary-ai → Edit code
+// 배포: Cloudflare 워커(mathlibrary-ai)를 이 저장소에 연결해 두면(Settings → Build, 루트 디렉터리 worker)
+//       이 파일이 바뀔 때마다 자동으로 배포됩니다. 실행 위치는 wrangler.jsonc 에서 미국 동부로 고정.
+// 1) (수동으로 할 때) Cloudflare 대시보드 → Workers & Pages → mathlibrary-ai → Edit code
 // 2) 이 파일 내용을 전부 붙여넣고 Deploy
 // 3) Worker → Settings → Variables and Secrets
 //      ANTHROPIC_API_KEY (Secret)  : Anthropic API 키
