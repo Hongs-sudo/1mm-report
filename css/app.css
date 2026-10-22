@@ -708,3 +708,13 @@ table.xl td { min-width: 56px; }
 
 .fit-badge { position: absolute; right: 0; top: -22px; font-size: 11.5px; font-weight: 700; color: var(--gold-ink); background: var(--gold-l); border: 1px solid var(--gold-line); border-radius: 6px; padding: 1px 8px; white-space: nowrap; }
 .pg-wrap { margin-top: 6px; }
+
+/* AI 채우기 방식 선택 · 다른 값 표 */
+.ai-box { display: grid; gap: 8px; margin-top: 4px; }
+.ai-box .seg { margin-top: 0; }
+.ai-box .seg button { padding: 8px 6px; font-size: 12.5px; }
+.ai-box .hint { margin: 0; }
+.ai-diff { width: 100%; border-collapse: collapse; font-size: 12.5px; margin: 6px 0 12px; }
+.ai-diff th, .ai-diff td { border: 1px solid var(--line); padding: 5px 7px; text-align: left; vertical-align: top; }
+.ai-diff th { background: var(--green-l); color: var(--green); font-weight: 700; }
+.ai-diff td:last-child { color: #8a5a00; }

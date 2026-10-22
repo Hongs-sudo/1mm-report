@@ -315,26 +315,50 @@ export async function aiRead(endpoint, { data, uploads }) {
   return res.json();
 }
 // AI 결과 적용 — 형식은 worker/ai-proxy.js 참고
-export function applyAI(data, out) {
+// mode 'fill'   : 비어 있는 칸만 채움 (0 이 적힌 칸은 작성된 것으로 봄). 이미 쓴 값과 AI 값이 다르면 diffs 로 알려줌
+// mode 'replace': AI가 읽은 값으로 모두 바꿈
+const AI_FIELDS = {
+  prev_score: '직전학기 내신', entry_score: '진단평가', entry_score2: '진단평가(2)', join_date: '입회일자',
+  school: '학교', grade: '학년', current_course: '현재 진행 과정', monthly_eval_name: '월평가', monthly_eval_score: '월평가 점수',
+  monthly_eval_avg: '월평가 평균', cert_eval_name: '인증시험', cert_eval_score: '인증시험 점수', cert_eval_pf: '인증시험 P·F',
+  att_days: '결석·보강일', hw_note: '과제 메모'
+};
+const AI_TFIELDS = {
+  sessions: '수업', present: '출석', late: '지각', absent: '결석', nomk: '미보강', muAbsent: '결석보강', muProgress: '진도보강',
+  hwTotal: '과제 횟수', hwSkip: '안 해온 횟수', hwRate: '과제 달성률', hwCourse: '과정·교재', days: '수업 요일'
+};
+const blank = v => v == null || String(v).trim() === '';
+const same = (a, b) => String(a ?? '').replace(/\s+/g, ' ').trim() === String(b ?? '').replace(/\s+/g, ' ').trim();
+const short = v => { const t = String(v).replace(/\s+/g, ' ').trim(); return t.length > 40 ? t.slice(0, 40) + '…' : t; };
+export function applyAI(data, out, mode = 'fill') {
+  const fill = mode !== 'replace';
+  const diffs = []; let filled = 0;
+  const put = (obj, k, v, label) => {
+    if (blank(v)) return;
+    v = String(v);
+    if (!fill || blank(obj[k])) { if (!same(obj[k], v)) { obj[k] = v; filled++; } return; }
+    if (!same(obj[k], v)) diffs.push({ label, mine: short(obj[k]), ai: short(v) });
+  };
   const f = out.fields || {};
-  ['prev_score', 'entry_score', 'entry_score2', 'join_date', 'school', 'grade', 'current_course', 'monthly_eval_name', 'monthly_eval_score', 'monthly_eval_avg', 'cert_eval_name', 'cert_eval_score', 'cert_eval_pf', 'att_days', 'hw_note', 'current_progress'].forEach(k => {
-    if (f[k] != null && String(f[k]).trim() !== '') data[k] = String(f[k]);
-  });
+  Object.keys(AI_FIELDS).forEach(k => put(data, k, f[k], AI_FIELDS[k]));
   (out.teachers || []).forEach(t => {
     const row = data.teachers.find(r => r.role === t.role) || data.teachers.find(r => r.name && r.name === t.name);
     if (!row) return;
-    ['sessions', 'present', 'late', 'absent', 'nomk', 'muAbsent', 'muProgress', 'hwTotal', 'hwSkip', 'hwRate', 'hwCourse', 'days'].forEach(k => {
-      if (t[k] != null && String(t[k]) !== '') row[k] = String(t[k]);
-    });
+    const who = `${row.role}${row.name ? ' ' + row.name : ''}`;
+    Object.keys(AI_TFIELDS).forEach(k => put(row, k, t[k], `${who} · ${AI_TFIELDS[k]}`));
   });
-  if (f.current_progress) {
-    data.books = String(f.current_progress).split(/\n+/).map(l => l.trim()).filter(Boolean).map(l => {
+  if (!blank(f.current_progress)) {
+    const books = String(f.current_progress).split(/\n+/).map(l => l.trim()).filter(Boolean).map(l => {
       const r = l.match(/\((\d{1,3})\s*%\)\s*$/);
       return { name: r ? l.slice(0, r.index).trim() : l, rate: r ? r[1] : '', teacher: '' };
     });
+    const has = (data.books || []).some(b => !blank(b.name));
+    const line = list => list.map(b => b.name + (b.rate ? ` (${b.rate}%)` : '')).join(', ');
+    if (!fill || !has) { data.books = books; filled++; }
+    else if (!same(line(data.books.filter(b => !blank(b.name))), line(books))) diffs.push({ label: '현재 진행 교재', mine: short(line(data.books.filter(b => !blank(b.name)))), ai: short(line(books)) });
   }
-  if (out.memo) data.ai_memo = String(out.memo);
-  return out.check || [];
+  if (!blank(out.memo) && (!fill || blank(data.ai_memo))) data.ai_memo = String(out.memo);
+  return { check: out.check || [], diffs, filled };
 }
 
 export { num };

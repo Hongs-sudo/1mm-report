@@ -261,7 +261,15 @@ export async function renderEditor(ctx, id) {
     const list = uploads.files.map(f => `<li class="${f.id === uploads.cur ? 'on' : ''}"><button type="button" data-file="${f.id}"><span class="ic ${f.kind}">${{ img: 'JPG', sheet: 'XLS', json: 'DR', pdf: 'PDF' }[f.kind]}</span><span class="fn">${esc(f.name)}</span></button>
       ${T.length > 1 ? `<select class="fi sel tsel" data-ft="${f.id}" aria-label="누구의 자료인지">${T.map((t, i) => `<option value="${i}" ${f.teacherIdx === i ? 'selected' : ''}>${t.role} ${esc(t.name || '')}</option>`).join('')}</select>` : ''}
       <button type="button" class="x" data-rm="${f.id}" aria-label="빼기">×</button></li>`).join('');
-    const ai = config.aiEndpoint ? `<button type="button" class="btn gold full" id="btn-ai">AI로 읽어서 채우기</button>` : `<p class="hint">자동 인식(AI)은 관리자가 설정에서 연결하면 켜집니다. 지금은 자료를 옆에 띄워 놓고 직접 입력하세요.</p>`;
+    const mode = ui.aiMode === 'replace' ? 'replace' : 'fill';
+    const ai = config.aiEndpoint ? `<div class="ai-box">
+        <div class="seg ai-mode" role="radiogroup" aria-label="AI로 채우는 방식">
+          <button type="button" role="radio" data-aimode="fill" class="${mode === 'fill' ? 'on' : ''}" aria-checked="${mode === 'fill'}">비어 있는 칸만 채우기</button>
+          <button type="button" role="radio" data-aimode="replace" class="${mode === 'replace' ? 'on' : ''}" aria-checked="${mode === 'replace'}">전부 AI 값으로 바꾸기</button>
+        </div>
+        <button type="button" class="btn gold full" id="btn-ai">AI로 읽어서 채우기</button>
+        <p class="hint">${mode === 'fill' ? '이미 쓴 칸(0 포함)은 그대로 두고 빈 칸만 채웁니다. 다른 값은 끝나고 알려드립니다.' : '이미 쓴 칸도 AI가 읽은 값으로 바꿉니다.'}</p>
+      </div>` : `<p class="hint">자동 인식(AI)은 관리자가 설정에서 연결하면 켜집니다. 지금은 자료를 옆에 띄워 놓고 직접 입력하세요.</p>`;
     return `<div class="files">
       <label class="drop" for="up-in"><b>＋ 사진 · 엑셀 올리기</b><small>입회원서 사진, 수업 기록 엑셀·CSV, 데일리 리포트 백업(json)</small></label>
       <input type="file" id="up-in" multiple accept="image/*,.xlsx,.xls,.csv,.json,.pdf" hidden>
@@ -318,6 +326,7 @@ export async function renderEditor(ctx, id) {
       else if (t.hasAttribute('data-json-dr')) { try { setDRFromObject(f.obj); await drImport(true); } catch (er) { toast(er.message, 'err'); } }
     };
     const ai = $('#btn-ai'); if (ai) ai.onclick = runAI;
+    document.querySelectorAll('[data-aimode]').forEach(b => b.onclick = () => { ui.aiMode = b.dataset.aimode; try { lsSet('mm.ui', JSON.stringify(ui)); } catch {} renderRight(); });
   }
   function popImage(f) {
     const root = $('#modal-root');
@@ -326,12 +335,22 @@ export async function renderEditor(ctx, id) {
   }
   function openFiles() { st.right = 'files'; ui.r = false; if (!narrow()) ui.w = true; else ui.l = true; applyUI(); renderRight(); }
   async function runAI() {
+    const mode = ui.aiMode === 'replace' ? 'replace' : 'fill';
+    if (mode === 'replace') {
+      const ok = await confirmBox({ title: '전부 AI 값으로 바꿀까요?', body: '<p>이미 쓰거나 데일리 리포트에서 불러온 칸도 AI가 읽은 값으로 바뀝니다. 비어 있는 칸만 채우려면 <b>비어 있는 칸만 채우기</b>를 고르세요.</p>', ok: '바꾸기', cancel: '취소' });
+      if (!ok) return;
+    }
     const btn = $('#btn-ai'); btn.disabled = true; btn.textContent = 'AI가 읽는 중… (30초 정도 걸립니다)';
     try {
       const out = await aiRead(config.aiEndpoint, { data, uploads });
-      const check = applyAI(data, out);
+      const { check, diffs, filled } = applyAI(data, out, mode);
       touch(); renderSheets(true); renderRight(); refreshWho();
-      await confirmBox({ title: 'AI가 읽은 내용을 채웠습니다', body: `<p>채운 값을 지면에서 확인하고 필요하면 고쳐주세요.</p>${check.length ? `<p><b>확인이 필요한 부분</b></p><ul>${check.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}${data.ai_memo ? `<p><b>상담 메모 (브리핑 참고)</b><br>${esc(data.ai_memo)}</p>` : ''}`, ok: '확인', cancel: '닫기' });
+      const head = mode === 'fill'
+        ? `<p>비어 있던 칸 <b>${filled}곳</b>을 채웠습니다. 이미 쓴 칸은 그대로 두었습니다.</p>`
+        : `<p>AI가 읽은 값으로 <b>${filled}곳</b>을 바꿨습니다.</p>`;
+      const diffHTML = diffs.length ? `<p><b>이미 쓴 값과 AI가 읽은 값이 다른 곳 (${diffs.length})</b> — 그대로 두었으니 필요하면 직접 고쳐주세요.</p>
+        <table class="ai-diff"><thead><tr><th>항목</th><th>작성된 값</th><th>AI가 읽은 값</th></tr></thead><tbody>${diffs.map(d => `<tr><td>${esc(d.label)}</td><td>${esc(d.mine)}</td><td>${esc(d.ai)}</td></tr>`).join('')}</tbody></table>` : '';
+      await confirmBox({ title: mode === 'fill' ? 'AI가 빈 칸을 채웠습니다' : 'AI가 읽은 값으로 바꿨습니다', body: `${head}<p>채운 값을 지면에서 확인하고 필요하면 고쳐주세요.</p>${diffHTML}${check.length ? `<p><b>확인이 필요한 부분</b></p><ul>${check.map(c => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}${data.ai_memo ? `<p><b>상담 메모 (브리핑 참고)</b><br>${esc(data.ai_memo)}</p>` : ''}`, ok: '확인', cancel: '닫기' });
     } catch (e) { console.error(e); toast(e.message || 'AI 인식에 실패했습니다', 'err'); }
     finally { const b = $('#btn-ai'); if (b) { b.disabled = false; b.textContent = 'AI로 읽어서 채우기'; } }
   }
