@@ -2,7 +2,7 @@
   "name": "1MM 보고서 · 수학도서관",
   "short_name": "1MM 보고서",
   "description": "수학도서관 1개월 학습보고서 작성 프로그램",
-  "id": "./",
+  "id": "/1mm-report/",
   "start_url": "./#/list",
   "scope": "./",
   "display": "standalone",
