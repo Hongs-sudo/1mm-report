@@ -4,7 +4,7 @@ rules_version = '2';
 // Firebase 콘솔 → Firestore Database → 규칙 탭에 이 내용을 그대로 붙여넣고 [게시]를 누르세요.
 //
 // - 관리자: 모든 학생·보고서에 대해 모든 권한
-// - 선생님: 자기가 담임인 학생의 보고서만 작성·수정, 부담임으로 들어간 학생은 보기만
+// - 선생님: 담임 학생을 직접 등록·수정(부담임 지정 포함)하고 그 학생 보고서를 작성·수정, 부담임으로 들어간 학생은 보기만
 // - 첫 관리자(원장님 계정)는 staff 문서가 없어도 관리자로 인정합니다.
 
 service cloud.firestore {
@@ -44,11 +44,22 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // 학생 — 담임·부담임 선생님은 읽기, 등록·배정은 관리자
+    // 학생 — 담임·부담임 선생님은 읽기
+    //   선생님은 본인을 담임으로 하는 학생을 직접 등록하고(부담임 지정 포함), 내 담임 학생 정보를 고칠 수 있음
+    //   담임을 다른 선생님으로 넘기기·삭제는 관리자
     match /students/{id} {
       allow read: if isAdmin()
         || (isStaff() && (resource.data.homeroom == myEmail() || resource.data.sub == myEmail()));
-      allow write: if isAdmin();
+      allow create: if isAdmin()
+        || (isStaff()
+            && request.resource.data.homeroom == myEmail()
+            && request.resource.data.get('sub', '') != myEmail());
+      allow update: if isAdmin()
+        || (isStaff()
+            && resource.data.homeroom == myEmail()
+            && request.resource.data.homeroom == myEmail()
+            && request.resource.data.get('sub', '') != myEmail());
+      allow delete: if isAdmin();
     }
 
     // 보고서
@@ -71,7 +82,12 @@ service cloud.firestore {
             && resource.data.status == 'draft'
             && request.resource.data.homeroom == myEmail()
             && request.resource.data.studentId == resource.data.studentId
-            && request.resource.data.status in ['draft', 'done']);
+            && request.resource.data.status in ['draft', 'done'])
+        // 담임이 학생의 부담임을 바꾸면 그 학생 보고서의 부담임도 함께 바뀜 (완료된 보고서 포함, 다른 내용은 그대로)
+        || (isStaff()
+            && resource.data.homeroom == myEmail()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sub'])
+            && request.resource.data.sub != myEmail());
 
       allow delete: if isAdmin();
     }

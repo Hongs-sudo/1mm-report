@@ -718,3 +718,7 @@ table.xl td { min-width: 56px; }
 .ai-diff th, .ai-diff td { border: 1px solid var(--line); padding: 5px 7px; text-align: left; vertical-align: top; }
 .ai-diff th { background: var(--green-l); color: var(--green); font-weight: 700; }
 .ai-diff td:last-child { color: #8a5a00; }
+
+/* 학생 중복 의심 표시 */
+.tg.dup { background: #FDECEA; color: #B3261E; border: 1px solid #F3C2BD; }
+.lead.warn-t { color: #8a3a2f; }

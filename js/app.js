@@ -305,19 +305,26 @@ async function renderNew() {
   const reports = await readScoped('reports');
   const has = new Map(); reports.forEach(r => { has.set(r.studentId, (has.get(r.studentId) || 0) + 1); });
   main.innerHTML = `
-    <div class="page-h"><h1>새 보고서</h1></div>
-    <p class="lead">보고서를 쓸 학생을 고르세요. 학교·학년·입회일·담임/부담임이 채워진 상태로 시작합니다.</p>
+    <div class="page-h"><h1>새 보고서</h1><span class="sp"></span><button type="button" class="btn gold" id="n-add">＋ 학생 등록하고 시작</button></div>
+    <p class="lead">보고서를 쓸 학생을 고르세요. 학교·학년·입회일·담임/부담임이 채워진 상태로 시작합니다. 목록에 없는 학생은 <b>＋ 학생 등록하고 시작</b>을 누르세요.</p>
     <input class="fi search" id="n-q" placeholder="학생 이름으로 찾기">
     ${students.length ? `<div class="pick" id="pick">${students.map(s => `<button type="button" class="pick-item" data-id="${s.id}" data-name="${esc(s.name)}">
       <span class="av">${esc((s.name || '?').slice(0, 1))}</span><div><b>${esc(s.name)}</b><small>${esc([s.school, s.grade].filter(Boolean).join(' '))}${s.joinDate ? ' · 입회 ' + esc(s.joinDate) : ''}</small><small>${esc(nm(s.homeroom))} 담임${s.sub ? ' · ' + esc(nm(s.sub)) + ' 부담임' : ''}</small></div>
       ${has.get(s.id) ? `<span class="s n">보고서 ${has.get(s.id)}개</span>` : ''}</button>`).join('')}</div>`
-    : `<div class="empty-state"><h2>보고서를 쓸 수 있는 학생이 없습니다</h2><p>${ctx.isAdmin ? '학생을 먼저 등록해 주세요.' : '담임으로 배정된 학생이 없습니다. 원장님께 담임 배정을 요청해 주세요.'}</p>${ctx.isAdmin ? '<a class="btn primary" href="#/students">학생 등록하기</a>' : ''}</div>`}`;
+    : `<div class="empty-state"><h2>보고서를 쓸 수 있는 학생이 없습니다</h2><p>오른쪽 위 <b>＋ 학생 등록하고 시작</b>으로 학생을 등록하면 바로 보고서를 쓸 수 있습니다.</p></div>`}`;
   const q = $('#n-q');
   q.oninput = () => $$('.pick-item').forEach(b => { b.hidden = q.value && !b.dataset.name.includes(q.value.trim()); });
+  $('#n-add').onclick = async () => {
+    const s = await studentForm(null, { ok: '등록하고 보고서 시작' });
+    if (s) await start(s);
+  };
   $$('.pick-item').forEach(b => b.onclick = async () => {
     const s = students.find(x => x.id === b.dataset.id);
     if (has.get(s.id) && !await confirmBox({ title: '이미 보고서가 있는 학생입니다', body: `<p>${esc(s.name)} 학생의 보고서가 ${has.get(s.id)}개 있습니다. 새로 하나 더 만들까요?</p>`, ok: '새로 만들기' })) return;
     b.disabled = true;
+    if (!await start(s)) b.disabled = false;
+  });
+  async function start(s) {
     try {
       const data = newReportData(s, ctx.staffNames);
       data.consult_date = '';
@@ -328,8 +335,52 @@ async function renderNew() {
         updatedAt: serverTimestamp(), updatedBy: ctx.me.name || ctx.me.email, updatedByEmail: ctx.me.email
       });
       ctx.go(isPhone() ? '#/view/' + docRef.id : '#/report/' + docRef.id);
-    } catch (e) { console.error(e); toast('보고서를 만들지 못했습니다 (' + (e.code || '') + ')', 'err'); b.disabled = false; }
+      return true;
+    } catch (e) { console.error(e); toast('보고서를 만들지 못했습니다 (' + (e.code || '') + ')', 'err'); return false; }
+  }
+}
+
+/* =========================================================
+   학생 등록 · 고치기 (관리자: 모든 학생 / 선생님: 내 담임 학생, 담임은 본인으로 고정)
+   ========================================================= */
+const studentKey = s => `${(s.name || '').replace(/\s+/g, '')}|${(s.school || '').replace(/\s+/g, '')}`;
+const canEditStudent = s => ctx.isAdmin || (s && s.homeroom === ctx.me.email);
+async function studentForm(s, { ok } = {}) {
+  const teachers = ctx.staff.filter(t => t.active !== false);
+  const opt = (sel, none, skip) => (none ? `<option value="">${none}</option>` : '') + teachers.filter(t => t.email !== skip).map(t => `<option value="${esc(t.email)}" ${sel === t.email ? 'selected' : ''}>${esc(t.name || t.email)}</option>`).join('');
+  const admin = ctx.isAdmin;
+  const homeroomField = admin
+    ? `<select class="fi sel full" name="homeroom" required>${opt(s?.homeroom || '', '선택하세요')}</select>`
+    : `<input class="fi full" value="${esc(ctx.me.name || ctx.me.email)} (본인)" disabled><input type="hidden" name="homeroom" value="${esc(ctx.me.email)}">`;
+  const r = await formBox({
+    title: s ? `${s.name} 정보 고치기` : '학생 등록', ok: ok || '저장',
+    html: `<div class="row2"><div><label class="lb">이름</label><input class="fi full" name="name" required value="${esc(s?.name || '')}"></div><div><label class="lb">입회일</label><input class="fi full" name="joinDate" placeholder="2026.09.01" value="${esc(s?.joinDate || '')}"></div></div>
+      <div class="row2"><div><label class="lb">학교</label><input class="fi full" name="school" placeholder="예) 염경중" value="${esc(s?.school || '')}"></div><div><label class="lb">학년</label><input class="fi full" name="grade" placeholder="예) 2학년" value="${esc(s?.grade || '')}"></div></div>
+      <div class="row2"><div><label class="lb">담임</label>${homeroomField}</div><div><label class="lb">부담임 (2인 수업일 때만)</label><select class="fi sel full" name="sub">${opt(s?.sub || '', '없음', admin ? '' : ctx.me.email)}</select></div></div>
+      ${s ? `<label class="chk"><input type="checkbox" name="inactive" ${s.active === false ? 'checked' : ''}> 퇴원 처리 (목록에서 흐리게 표시, 새 보고서 대상에서 빠짐)</label>` : ''}
+      ${s && admin ? '<button type="button" class="btn ghost sm danger-t" id="del-stu">이 학생 삭제</button>' : ''}`,
+    onMount: f => { const d = f.querySelector('#del-stu'); if (d) d.onclick = async () => { $('#modal-root').innerHTML = ''; if (await confirmBox({ title: `${s.name} 학생을 삭제할까요?`, body: '<p>학생 정보만 지워지고, 이미 만든 보고서는 남습니다.</p>', ok: '삭제', danger: true })) { await deleteDoc(ref('students', s.id)); toast('삭제했습니다'); route(); } }; }
   });
+  if (!r) return null;
+  const homeroom = admin ? r.homeroom : ctx.me.email;
+  if (r.sub && r.sub === homeroom) { toast('담임과 부담임을 같은 선생님으로 정할 수 없습니다', 'err'); return null; }
+  const payload = { name: r.name.trim(), school: r.school.trim(), grade: r.grade.trim(), joinDate: r.joinDate.trim(), homeroom, sub: r.sub || '', active: !r.inactive, updatedAt: serverTimestamp(), updatedBy: ctx.me.email };
+  try {
+    if (s) {
+      await updateDoc(ref('students', s.id), payload);
+      // 담임·부담임이 바뀌면 이 학생의 보고서 권한도 함께 옮김
+      if (s.homeroom !== payload.homeroom || (s.sub || '') !== payload.sub) {
+        const rs = admin ? await getDocs(query(col('reports'), where('studentId', '==', s.id)))
+          : await getDocs(query(col('reports'), where('homeroom', '==', ctx.me.email), where('studentId', '==', s.id)));
+        await Promise.all(rs.docs.map(d => updateDoc(d.ref, admin ? { homeroom: payload.homeroom, sub: payload.sub } : { sub: payload.sub })));
+      }
+      toast('저장했습니다');
+      return { ...s, ...payload };
+    }
+    const d = await addDoc(col('students'), { ...payload, createdAt: serverTimestamp(), createdBy: ctx.me.email });
+    toast(`${payload.name} 학생을 등록했습니다`);
+    return { id: d.id, ...payload };
+  } catch (e) { console.error(e); toast('저장하지 못했습니다 (' + (e.code || '') + ')', 'err'); return null; }
 }
 
 /* =========================================================
@@ -342,16 +393,18 @@ async function renderStudents() {
   const teachers = ctx.staff.filter(s => s.active !== false);
   const opt = (sel, none) => (none ? `<option value="">${none}</option>` : '') + teachers.map(t => `<option value="${esc(t.email)}" ${sel === t.email ? 'selected' : ''}>${esc(t.name || t.email)}</option>`).join('');
   let q = '', tf = '';
+  const dup = new Map(); students.forEach(s => dup.set(studentKey(s), (dup.get(studentKey(s)) || 0) + 1));
+  const dupCount = students.filter(s => dup.get(studentKey(s)) > 1).length;
   function draw() {
     const rows = students.filter(s => (!q || (s.name || '').includes(q)) && (!tf || s.homeroom === tf || s.sub === tf));
     main.innerHTML = `
       <div class="page-h"><h1>${ctx.isAdmin ? '학생 · 담임 배정' : '내 담임반 학생'}</h1><span class="sp"></span>
-        ${ctx.isAdmin ? '<button type="button" class="btn line" id="bulk">여러 명 붙여넣기</button><button type="button" class="btn gold" id="add">＋ 학생 등록</button>' : ''}</div>
-      ${ctx.isAdmin ? '' : '<p class="lead">담임으로 배정된 학생과, 부담임으로 함께 수업하는 학생입니다. 학생 등록과 담임 배정은 관리자가 합니다.</p>'}
+        ${ctx.isAdmin ? '<button type="button" class="btn line" id="bulk">여러 명 붙여넣기</button>' : ''}<button type="button" class="btn gold" id="add">＋ 학생 등록</button></div>
+      ${ctx.isAdmin ? (dupCount ? `<p class="lead warn-t">이름·학교가 같은 학생이 <b>${dupCount}명</b> 있습니다. <span class="tg dup">중복 의심</span> 표시를 확인해 정리해 주세요.</p>` : '') : '<p class="lead">내가 담임인 학생과, 부담임으로 함께 수업하는 학생입니다. <b>＋ 학생 등록</b>으로 새 학생을 등록하면 담임은 본인으로 정해지고, 부담임도 고를 수 있습니다.</p>'}
       <div class="filters"><input class="fi search" id="s-q" placeholder="이름으로 찾기" value="${esc(q)}">
         ${ctx.isAdmin ? `<select class="fi sel" id="s-tf"><option value="">선생님 전체</option>${opt(tf)}</select>` : ''}<span class="mute">${rows.length}명</span></div>
-      ${rows.length ? `<div class="tw"><table class="st"><thead><tr><th>이름</th><th>학교</th><th>학년</th><th>입회일</th><th>담임</th><th>부담임</th>${ctx.isAdmin ? '<th></th>' : ''}</tr></thead><tbody>
-        ${rows.map(s => `<tr class="${s.active === false ? 'off' : ''}"><td><b>${esc(s.name)}</b>${s.active === false ? ' <span class="s n">퇴원</span>' : ''}${!ctx.isAdmin ? ` <span class="tg ${s.homeroom === ctx.me.email ? 'a' : 's'}">${s.homeroom === ctx.me.email ? '담임' : '부담임'}</span>` : ''}</td><td>${esc(s.school || '')}</td><td>${esc(s.grade || '')}</td><td>${esc(s.joinDate || '')}</td><td>${esc(nm(s.homeroom))}</td><td>${esc(nm(s.sub))}</td>${ctx.isAdmin ? `<td class="acts"><button type="button" class="btn ghost sm" data-edit="${s.id}">고치기</button></td>` : ''}</tr>`).join('')}
+      ${rows.length ? `<div class="tw"><table class="st"><thead><tr><th>이름</th><th>학교</th><th>학년</th><th>입회일</th><th>담임</th><th>부담임</th><th></th></tr></thead><tbody>
+        ${rows.map(s => `<tr class="${s.active === false ? 'off' : ''}"><td><b>${esc(s.name)}</b>${s.active === false ? ' <span class="s n">퇴원</span>' : ''}${!ctx.isAdmin ? ` <span class="tg ${s.homeroom === ctx.me.email ? 'a' : 's'}">${s.homeroom === ctx.me.email ? '담임' : '부담임'}</span>` : ''}${ctx.isAdmin && dup.get(studentKey(s)) > 1 ? ' <span class="tg dup">중복 의심</span>' : ''}</td><td>${esc(s.school || '')}</td><td>${esc(s.grade || '')}</td><td>${esc(s.joinDate || '')}</td><td>${esc(nm(s.homeroom))}</td><td>${esc(nm(s.sub))}</td><td class="acts">${canEditStudent(s) ? `<button type="button" class="btn ghost sm" data-edit="${s.id}">고치기</button>` : ''}</td></tr>`).join('')}
       </tbody></table></div>` : `<div class="empty-state"><h2>${students.length ? '찾는 학생이 없습니다' : '등록된 학생이 없습니다'}</h2>${ctx.isAdmin && !students.length ? '<p>학생을 등록하고 담임을 정하면, 그 선생님 화면에 학생이 나타납니다.</p>' : ''}</div>`}`;
     const qi = $('#s-q'); qi.oninput = () => { q = qi.value.trim(); const p = qi.selectionStart; draw(); const n = $('#s-q'); n.focus(); n.setSelectionRange(p, p); };
     const t = $('#s-tf'); if (t) t.onchange = () => { tf = t.value; draw(); };
@@ -359,33 +412,7 @@ async function renderStudents() {
     const bulk = $('#bulk'); if (bulk) bulk.onclick = bulkAdd;
     $$('[data-edit]').forEach(b => b.onclick = () => editStudent(students.find(s => s.id === b.dataset.edit)));
   }
-  async function editStudent(s) {
-    const r = await formBox({
-      title: s ? `${s.name} 정보 고치기` : '학생 등록',
-      html: `<div class="row2"><div><label class="lb">이름</label><input class="fi full" name="name" required value="${esc(s?.name || '')}"></div><div><label class="lb">입회일</label><input class="fi full" name="joinDate" placeholder="2026.09.01" value="${esc(s?.joinDate || '')}"></div></div>
-        <div class="row2"><div><label class="lb">학교</label><input class="fi full" name="school" placeholder="예) 염경중" value="${esc(s?.school || '')}"></div><div><label class="lb">학년</label><input class="fi full" name="grade" placeholder="예) 2학년" value="${esc(s?.grade || '')}"></div></div>
-        <div class="row2"><div><label class="lb">담임</label><select class="fi sel full" name="homeroom" required>${opt(s?.homeroom || '', '선택하세요')}</select></div><div><label class="lb">부담임 (없으면 비워두기)</label><select class="fi sel full" name="sub">${opt(s?.sub || '', '없음')}</select></div></div>
-        ${s ? `<label class="chk"><input type="checkbox" name="inactive" ${s.active === false ? 'checked' : ''}> 퇴원 처리 (목록에서 흐리게 표시, 새 보고서 대상에서 빠짐)</label>` : ''}
-        ${s ? '<button type="button" class="btn ghost sm danger-t" id="del-stu">이 학생 삭제</button>' : ''}`,
-      onMount: f => { const d = f.querySelector('#del-stu'); if (d) d.onclick = async () => { $('#modal-root').innerHTML = ''; if (await confirmBox({ title: `${s.name} 학생을 삭제할까요?`, body: '<p>학생 정보만 지워지고, 이미 만든 보고서는 남습니다.</p>', ok: '삭제', danger: true })) { await deleteDoc(ref('students', s.id)); toast('삭제했습니다'); renderStudents(); } }; }
-    });
-    if (!r) return;
-    if (r.sub && r.sub === r.homeroom) { toast('담임과 부담임을 같은 선생님으로 정할 수 없습니다', 'err'); return; }
-    const payload = { name: r.name.trim(), school: r.school.trim(), grade: r.grade.trim(), joinDate: r.joinDate.trim(), homeroom: r.homeroom, sub: r.sub || '', active: !r.inactive, updatedAt: serverTimestamp() };
-    try {
-      if (s) {
-        await updateDoc(ref('students', s.id), payload);
-        // 담임이 바뀌면 이 학생의 보고서 권한도 함께 옮김
-        if (s.homeroom !== payload.homeroom || (s.sub || '') !== payload.sub) {
-          const rs = await getDocs(query(col('reports'), where('studentId', '==', s.id)));
-          await Promise.all(rs.docs.map(d => updateDoc(d.ref, { homeroom: payload.homeroom, sub: payload.sub })));
-        }
-      } else {
-        await addDoc(col('students'), { ...payload, createdAt: serverTimestamp() });
-      }
-      toast('저장했습니다'); renderStudents();
-    } catch (e) { console.error(e); toast('저장하지 못했습니다 (' + (e.code || '') + ')', 'err'); }
-  }
+  async function editStudent(s) { if (await studentForm(s)) renderStudents(); }
   async function bulkAdd() {
     const r = await formBox({
       title: '여러 명 붙여넣기', wide: true,
