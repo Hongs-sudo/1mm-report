@@ -18,6 +18,8 @@ const tgCls = r => (r === '담임' ? '' : ' s');
    지면 4쪽 (표지 · 1 · 2 · 3)
    edit=true 이면 입력칸과 고르기 버튼, false 이면 인쇄용 글자
    ========================================================= */
+const HW_UNITS = ['Page', '문제수', '단원'];
+
 export function sheetPages(report, { edit = false } = {}) {
   const d = normalize(report.data);
   const E = edit;
@@ -93,11 +95,16 @@ export function sheetPages(report, { edit = false } = {}) {
 
   const rate = S.hwRate === '' ? 0 : pct(S.hwRate);
   const donut = `<div class="s-donut"><svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="none" stroke="#EEF2F0" stroke-width="11"/><circle data-donut cx="60" cy="60" r="50" fill="none" stroke="#0A4844" stroke-width="11" stroke-linecap="round" stroke-dasharray="${(rate / 100 * 314.16).toFixed(1)} 314.16" transform="rotate(-90 60 60)"/></svg><div class="c"><b data-sum="hwRatePct">${S.hwRate === '' ? '–' : S.hwRate + '%'}</b><span>${multi ? '전체 ' : ''}달성률</span></div></div>`;
+  // 1회 과제량 — 선생님마다 숫자 + 단위 (단위를 고르지 않았으면 보고서 기본 단위)
+  const hwAmt = (t, i) => {
+    const unit = t.hwUnit || d.hw_type || 'Page';
+    if (E) return `<span class="s-two amt">${ft(i, 'hwAmount', '양', 'num', 'width:8mm')}<select class="e sel" data-t="${i}" data-f="hwUnit" aria-label="과제 단위">${HW_UNITS.map(o => `<option ${unit === o ? 'selected' : ''}>${o}</option>`).join('')}</select></span>`;
+    return String(t.hwAmount ?? '').trim() ? `<b>${esc(t.hwAmount)}</b> ${esc(unit)}` : esc(unit);
+  };
   const hwRows = T.map((t, i) => `<tr><td>${esc(t.name || '선생님')}<span class="s-tg${tgCls(t.role)}">${esc(t.role)}</span> ${E ? ft(i, 'hwCourse', '과정 · 교재', '', 'width:40mm;display:inline-block') : esc(t.hwCourse || '')}</td>
-    <td>${esc(d.hw_type || '')}</td><td>${ft(i, 'hwTotal', '0')}${E ? '' : '회'}</td><td>${ft(i, 'hwSkip', '0')}${E ? '' : '회'}</td>
+    <td class="s-amt">${hwAmt(t, i)}</td><td>${ft(i, 'hwTotal', '0')}${E ? '' : '회'}</td><td>${ft(i, 'hwSkip', '0')}${E ? '' : '회'}</td>
     <td><div class="s-mb"><span class="t"><i data-bar-t="${i}" class="${i > 0 ? 'gd' : ''}" style="width:${pct(t.hwRate)}%"></i></span>${E ? ft(i, 'hwRate', '%', 'num', 'width:10mm') : `<span>${t.hwRate === '' ? '–' : esc(t.hwRate) + '%'}</span>`}</div></td></tr>`).join('');
   const hwSum = `<tr class="sum"><td>합계</td><td></td><td>${sumv('hwTotal')}회</td><td>${sumv('hwSkip')}회</td><td><div class="s-mb"><span class="t"><i data-bar-sum style="width:${rate}%"></i></span><span data-sum="hwRatePct">${S.hwRate === '' ? '–' : S.hwRate + '%'}</span></div></td></tr>`;
-  const hwUnit = E ? `<select class="e sel" data-k="hw_type" aria-label="과제 단위">${['Page', '문제수', '단원'].map(o => `<option ${d.hw_type === o ? 'selected' : ''}>${o}</option>`).join('')}</select>` : '';
   const miss = (E || d.hw_note) ? `<div class="s-miss"><b>안해온 날짜 &amp; 분량 — </b>${fa('hw_note', '예) 9/11(금) 내신대비교재 A p.34–41', 1)}</div>` : '';
 
   const p1 = page(`<div class="s-in">${head('I', '상담 기록 · 출결 · 관찰 평가')}
@@ -118,10 +125,10 @@ export function sheetPages(report, { edit = false } = {}) {
       ${attRows}${multi || E ? attSum : ''}
     </table>
     ${logLine}
-    <div class="s-sec"><h2>과제</h2><span class="per">${E ? '단위 ' + hwUnit : ''}</span><span class="r"></span></div>
+    <div class="s-sec"><h2>과제</h2><span class="per">1회 과제량 기준으로 기록 · 단위 Page / 문제수 / 단원</span><span class="r"></span></div>
     <div class="s-hw">${donut}
       <table class="s-tt">
-        <tr><th>선생님 · 과정</th><th>단위</th><th>과제</th><th>안함</th><th style="width:36mm">달성률</th></tr>
+        <tr><th>선생님 · 과정</th><th>1회 과제량</th><th>과제</th><th>안함</th><th style="width:36mm">달성률</th></tr>
         ${hwRows}${multi || E ? hwSum : ''}
       </table>
     </div>
@@ -258,6 +265,7 @@ function mHw(data) {
   const bar = (r, gold) => r === '' || r == null ? '<span class="mv-empty">–</span>' : `<div class="mb"><span class="t"><i class="${gold ? 'gd' : ''}" style="width:${pct(r)}%"></i></span><span>${esc(r)}%</span></div>`;
   const row = (t, i, isSum) => `<div class="mv-trow ${isSum ? 'sum' : ''}"><div class="mv-tn">${isSum ? '합계' : `${esc(t.name || '선생님')}<span class="tg ${t.role === '담임' ? 'a' : 's'}">${esc(t.role)}</span>`}</div>
     ${!isSum && t.hwCourse ? `<div class="mv-course">${esc(t.hwCourse)}</div>` : ''}
+    ${!isSum ? `<div class="mv-course">1회 과제량 <b>${String(t.hwAmount ?? '').trim() ? esc(t.hwAmount) + ' ' : ''}${esc(t.hwUnit || data.hw_type || 'Page')}</b></div>` : ''}
     <div class="mv-hw"><span>총 <b>${nn(t.hwTotal)}</b>회</span><span>안함 <b>${nn(t.hwSkip)}</b>회</span><span class="r">${bar(t.hwRate, i > 0 && !isSum)}</span></div></div>`;
   return data.teachers.map((t, i) => row(t, i, false)).join('') + (data.teachers.length > 1 ? row(S, 0, true) : '');
 }
@@ -281,7 +289,7 @@ export function mobileHTML(report, statusLabel) {
   const log = [d.att_days, d.att_note].filter(Boolean).map(esc).join(' · ');
   const att = `${mAtt(d)}${log ? `<p class="mv-note">${log}</p>` : ''}`;
   const S = sums(d);
-  const hw = `${S.hwRate !== '' ? `<div class="mv-big"><b>${S.hwRate}%</b><small>${d.teachers.length > 1 ? '전체 ' : ''}과제 달성률</small></div>` : ''}${mHw(d)}<p class="mv-note">단위 ${esc(d.hw_type || '')}</p>${d.hw_note ? `<div class="mv-txt"><span class="lb">안해온 날짜 &amp; 분량</span>${nl2br(d.hw_note)}</div>` : ''}`;
+  const hw = `${S.hwRate !== '' ? `<div class="mv-big"><b>${S.hwRate}%</b><small>${d.teachers.length > 1 ? '전체 ' : ''}과제 달성률</small></div>` : ''}${mHw(d)}${d.hw_note ? `<div class="mv-txt"><span class="lb">안해온 날짜 &amp; 분량</span>${nl2br(d.hw_note)}</div>` : ''}`;
   const qs = ids => ids.map(id => qMobile(id, d)).join('');
   const books = d.books.filter(b => b.name || b.rate !== '');
   const road = d.road.filter(r => r.month || r.text);

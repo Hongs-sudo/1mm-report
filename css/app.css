@@ -371,13 +371,14 @@ table.xl tr.gap td { text-align: center; color: var(--mute); background: var(--s
 .mv-qb { padding: 10px 12px; }
 .mv-opts { display: flex; flex-wrap: wrap; gap: 6px; }
 .mv-opts span { border: 1px solid var(--line); border-radius: 20px; padding: 5px 11px; font-size: 12.5px; color: #8A9592; }
-.mv-opts span.on { background: var(--green); border-color: var(--green); color: #fff; font-weight: 700; }
+.mv-opts span.on { background: #FDECEA; border-color: #D7261E; color: #C21F18; font-weight: 800; }
+.mv-opts span.on::before { content: "✔ "; }
 .mv-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }
 .mv-scale div { text-align: center; font-size: 11px; color: var(--mute); }
 .mv-scale i { display: block; height: 16px; margin-top: 3px; border-radius: 2px; }
 .mv-scale div:nth-child(1) i { background: #E6EFEC; } .mv-scale div:nth-child(2) i { background: #C6DAD5; } .mv-scale div:nth-child(3) i { background: #93B9B2; } .mv-scale div:nth-child(4) i { background: #4E8781; } .mv-scale div:nth-child(5) i { background: #0A4844; }
-.mv-scale div.on { color: var(--gold-ink); font-weight: 800; }
-.mv-scale div.on i { background: var(--gold); box-shadow: inset 0 0 0 2px #8A6A39; }
+.mv-scale div.on { color: #C21F18; font-weight: 800; }
+.mv-scale div.on i { background: #fff !important; box-shadow: inset 0 0 0 2px #D7261E; }
 .mv-brief { margin-top: 12px; font-size: 14px; line-height: 1.85; color: #2E3B39; background: #FCFCFA; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
 .mv-foot { text-align: center; color: var(--mute); font-size: 12px; margin: 8px 0 0; }
 
@@ -608,13 +609,15 @@ table.xl td { min-width: 56px; }
 .pr-page .s-qb { padding: 2.2mm 3.2mm; }
 .pr-page .s-opts { display: flex; flex-wrap: wrap; gap: 1.6mm; }
 .pr-page .s-opts > * { border: .2mm solid var(--ln); border-radius: 10mm; padding: 1.1mm 3.2mm; font-size: 8.6pt; color: #3A4644; background: #fff; font-family: inherit; line-height: 1.4; }
-.pr-page .s-opts > .on { background: var(--g); border-color: var(--g); color: #fff; font-weight: 700; }
+.pr-page .s-opts > .on { background: #FDECEA; border: .5mm solid #D7261E; color: #C21F18; font-weight: 800; }
+.pr-page .s-opts > .on::before { content: "✔ "; }
 .pr-page .s-scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: .8mm; }
 .pr-page .s-scale > * { text-align: center; font-size: 7.8pt; color: var(--mu); border: 0; background: none; padding: 0; font-family: inherit; line-height: 1.4; }
 .pr-page .s-scale i { display: block; height: 4.4mm; margin-top: .8mm; border-radius: .5mm; }
 .pr-page .s-scale > :nth-child(1) i { background: #E6EFEC; } .pr-page .s-scale > :nth-child(2) i { background: #C6DAD5; } .pr-page .s-scale > :nth-child(3) i { background: #93B9B2; } .pr-page .s-scale > :nth-child(4) i { background: #4E8781; } .pr-page .s-scale > :nth-child(5) i { background: #0A4844; }
-.pr-page .s-scale > .on { color: var(--gi); font-weight: 700; }
-.pr-page .s-scale > .on i { background: var(--pg-gold); box-shadow: inset 0 0 0 .5mm #8A6A39; }
+.pr-page .s-scale > .on { color: #C21F18; font-weight: 800; }
+.pr-page .s-scale > .on i { background: #fff !important; box-shadow: inset 0 0 0 .7mm #D7261E; position: relative; }
+.pr-page .s-scale > .on i::after { content: "✔"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #D7261E; font-style: normal; font-size: 9pt; font-weight: 900; line-height: 1; }
 .pr-page .s-txt { margin-top: 2.2mm; border-left: .6mm solid var(--gl); padding: .5mm 0 .5mm 3mm; font-size: 8.8pt; line-height: 1.75; color: #33403E; }
 .pr-page[data-pi="2"] .s-txt { font-size: var(--fs, 8.8pt); line-height: var(--lh, 1.75); }
 .pr-page .s-lb { display: flex; align-items: center; justify-content: space-between; gap: 2mm; font-size: 7.6pt; color: var(--gi); font-weight: 700; letter-spacing: .3pt; }
@@ -722,3 +725,10 @@ table.xl td { min-width: 56px; }
 /* 학생 중복 의심 표시 */
 .tg.dup { background: #FDECEA; color: #B3261E; border: 1px solid #F3C2BD; }
 .lead.warn-t { color: #8a3a2f; }
+
+/* 1회 과제량 */
+.pr-page .s-tt td.s-amt { white-space: nowrap; }
+.pr-page .s-tt td.s-amt b { font-size: 1.1em; color: var(--g); }
+.pr-page .s-two.amt { display: inline-flex; gap: 1mm; align-items: center; }
+.pr-page .s-two.amt select { width: auto; min-width: 15mm; }
+.pr-page .s-sec .per { font-size: 7.4pt; color: var(--gi); font-weight: 700; }

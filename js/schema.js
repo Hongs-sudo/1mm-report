@@ -85,7 +85,7 @@ export function newTeacherRow(role, name = '', email = '') {
   return {
     role, name, email, days: '',
     sessions: '', present: '', late: '', absent: '', nomk: '', muAbsent: '', muProgress: '',
-    hwCourse: '', hwTotal: '', hwSkip: '', hwRate: ''
+    hwCourse: '', hwAmount: '', hwUnit: '', hwTotal: '', hwSkip: '', hwRate: ''
   };
 }
 
