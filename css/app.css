@@ -554,8 +554,8 @@ table.xl td { min-width: 56px; }
   body.printing .pr-page:last-child { break-after: auto; page-break-after: auto; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
-.pr-page { --g:#0A4844; --pg-gold:#B08D57; --gi:#9C7B47; --gl:#E8DCC2; --cream:#F7F4EC; --pink:#1E2A28; --mu:#6B7774; --ln:#DCE3E0; --tint:#F3F6F4; --lo:#B0413B; --wa:#A8670B;
-  width: 210mm; height: 297mm; position: relative; overflow: hidden; background: #fff; color: #1E2A28;
+.pr-page { --g:#073B37; --pg-gold:#9F7A3F; --gi:#856330; --gl:#D9C59E; --cream:#F5EFE1; --pink:#141E1C; --mu:#525E5B; --ln:#C8D2CE; --tint:#EEF3F0; --lo:#A3261F; --wa:#93560A;
+  width: 210mm; height: 297mm; position: relative; overflow: hidden; background: #fff; color: #141E1C;
   font-family: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; font-size: 9.6pt; line-height: 1.55; text-align: left; }
 .pr-page * { box-sizing: border-box; }
 .pr-page .s-frame { position: absolute; inset: 8mm; border: .4mm solid var(--gl); pointer-events: none; }
@@ -570,7 +570,7 @@ table.xl td { min-width: 56px; }
 .pr-page .s-ttl h1 { margin: 0; font-family: "Noto Serif KR", serif; font-weight: 900; font-size: 20pt; color: var(--g); letter-spacing: -.3pt; }
 .pr-page .s-sub { display: flex; align-items: center; gap: 2.5mm; color: var(--mu); font-size: 9.5pt; margin-bottom: 3mm; }
 .pr-page .s-sub .n { font-family: "Lora", Georgia, serif; font-size: 13pt; color: var(--gi); font-weight: 600; }
-.pr-page .s-greet { font-size: 8.2pt; line-height: 1.62; color: #3A4644; background: var(--cream); border-left: .8mm solid var(--pg-gold); padding: 2mm 3.6mm; margin: 0; }
+.pr-page .s-greet { font-size: 8.2pt; line-height: 1.62; color: #263330; background: var(--cream); border-left: .8mm solid var(--pg-gold); padding: 2mm 3.6mm; margin: 0; }
 .pr-page .s-greet b { color: var(--g); }
 .pr-page .s-sec { display: flex; align-items: center; gap: 2.5mm; margin: 2.7mm 0 1.4mm; }
 .pr-page .s-sec h2 { margin: 0; font-family: "Noto Serif KR", serif; font-size: 11.5pt; color: var(--g); font-weight: 900; white-space: nowrap; }
@@ -601,24 +601,24 @@ table.xl td { min-width: 56px; }
 .pr-page .s-mb .t i { display: block; height: 100%; background: var(--g); }
 .pr-page .s-mb .t i.gd { background: var(--pg-gold); }
 .pr-page .s-mb > span:last-child { width: 9mm; text-align: right; font-weight: 700; color: var(--g); }
-.pr-page .s-miss { margin-top: 1.8mm; font-size: 8.4pt; line-height: 1.5; padding: 1.8mm 3mm; background: #FBF6EC; color: #5C4A2A; border-radius: 1mm; }
+.pr-page .s-miss { margin-top: 1.8mm; font-size: 8.4pt; line-height: 1.5; padding: 1.8mm 3mm; background: #F7EEDC; color: #4A3A1E; border-radius: 1mm; }
 .pr-page .s-q { border: .2mm solid var(--ln); border-radius: 1.2mm; overflow: hidden; margin-top: 2.6mm; }
 .pr-page .s-qh { display: flex; justify-content: space-between; align-items: center; gap: 2mm; padding: 1.8mm 3.2mm; background: var(--tint); border-bottom: .2mm solid var(--ln); }
 .pr-page .s-qh b { font-size: 9.4pt; color: var(--g); }
 .pr-page .s-qh span { font-size: 7.8pt; color: var(--mu); }
 .pr-page .s-qb { padding: 2.2mm 3.2mm; }
 .pr-page .s-opts { display: flex; flex-wrap: wrap; gap: 1.6mm; }
-.pr-page .s-opts > * { border: .2mm solid var(--ln); border-radius: 10mm; padding: 1.1mm 3.2mm; font-size: 8.6pt; color: #3A4644; background: #fff; font-family: inherit; line-height: 1.4; }
+.pr-page .s-opts > * { border: .2mm solid var(--ln); border-radius: 10mm; padding: 1.1mm 3.2mm; font-size: 8.6pt; color: #263330; background: #fff; font-family: inherit; line-height: 1.4; }
 .pr-page .s-opts > .on { background: #FDECEA; border: .5mm solid #D7261E; color: #C21F18; font-weight: 800; }
 .pr-page .s-opts > .on::before { content: "✔ "; }
 .pr-page .s-scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: .8mm; }
 .pr-page .s-scale > * { text-align: center; font-size: 7.8pt; color: var(--mu); border: 0; background: none; padding: 0; font-family: inherit; line-height: 1.4; }
 .pr-page .s-scale i { display: block; height: 4.4mm; margin-top: .8mm; border-radius: .5mm; }
-.pr-page .s-scale > :nth-child(1) i { background: #E6EFEC; } .pr-page .s-scale > :nth-child(2) i { background: #C6DAD5; } .pr-page .s-scale > :nth-child(3) i { background: #93B9B2; } .pr-page .s-scale > :nth-child(4) i { background: #4E8781; } .pr-page .s-scale > :nth-child(5) i { background: #0A4844; }
+.pr-page .s-scale > :nth-child(1) i { background: #DCE8E4; } .pr-page .s-scale > :nth-child(2) i { background: #A9C8C1; } .pr-page .s-scale > :nth-child(3) i { background: #6FA39A; } .pr-page .s-scale > :nth-child(4) i { background: #2E6F68; } .pr-page .s-scale > :nth-child(5) i { background: #073B37; }
 .pr-page .s-scale > .on { color: #C21F18; font-weight: 800; }
 .pr-page .s-scale > .on i { background: #fff !important; box-shadow: inset 0 0 0 .7mm #D7261E; position: relative; }
 .pr-page .s-scale > .on i::after { content: "✔"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #D7261E; font-style: normal; font-size: 9pt; font-weight: 900; line-height: 1; }
-.pr-page .s-txt { margin-top: 2.2mm; border-left: .6mm solid var(--gl); padding: .5mm 0 .5mm 3mm; font-size: 8.8pt; line-height: 1.75; color: #33403E; }
+.pr-page .s-txt { margin-top: 2.2mm; border-left: .6mm solid var(--gl); padding: .5mm 0 .5mm 3mm; font-size: 8.8pt; line-height: 1.75; color: #222E2C; }
 .pr-page[data-pi="2"] .s-txt { font-size: var(--fs, 8.8pt); line-height: var(--lh, 1.75); }
 .pr-page .s-lb { display: flex; align-items: center; justify-content: space-between; gap: 2mm; font-size: 7.6pt; color: var(--gi); font-weight: 700; letter-spacing: .3pt; }
 .pr-page .s-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 5mm; }
@@ -633,13 +633,13 @@ table.xl td { min-width: 56px; }
 .pr-page .s-road li:has(.s-x) { display: block; }
 .pr-page .s-road b { font-family: "Lora", Georgia, serif; color: var(--gi); font-weight: 600; }
 .pr-page .s-road li.now span { color: var(--g); font-weight: 700; }
-.pr-page .s-empty { color: #B9C2BF; }
+.pr-page .s-empty { color: #9AA5A2; }
 .pr-page .s-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 4mm; }
 .pr-page .s-bh { display: flex; align-items: flex-end; justify-content: space-between; border-bottom: .6mm solid var(--g); padding-bottom: 3mm; margin-top: 6mm; }
 .pr-page .s-bh img { height: 9mm; width: auto; }
 .pr-page .s-bh h2 { margin: 0; font-family: "Noto Serif KR", serif; font-size: 15pt; color: var(--g); font-weight: 900; text-align: right; }
 .pr-page .s-bh h2 small { display: block; font-family: "Lora", Georgia, serif; font-style: italic; font-weight: 400; font-size: 10.5pt; color: var(--gi); }
-.pr-page .s-brief { margin-top: 2.6mm; font-size: var(--fs, 9pt); line-height: var(--lh, 1.85); color: #2E3B39; }
+.pr-page .s-brief { margin-top: 2.6mm; font-size: var(--fs, 9pt); line-height: var(--lh, 1.85); color: #1E2A28; }
 .pr-page .s-brief h4 { margin: 2.6mm 0 .4mm; font-size: max(1.02em, 8pt); color: var(--g); display: flex; align-items: center; gap: 2mm; }
 .pr-page .s-brief h4::before { content: ""; width: 1.6mm; height: 1.6mm; background: var(--pg-gold); transform: rotate(45deg); }
 .pr-page .s-brief p { margin: 0; }
@@ -732,3 +732,6 @@ table.xl td { min-width: 56px; }
 .pr-page .s-two.amt { display: inline-flex; gap: 1mm; align-items: center; }
 .pr-page .s-two.amt select { width: auto; min-width: 15mm; }
 .pr-page .s-sec .per { font-size: 7.4pt; color: var(--gi); font-weight: 700; }
+
+/* 출력용: 로고를 조금 더 진하게 */
+.pr-page img[src*="logo"] { filter: brightness(.88) saturate(1.15); }
